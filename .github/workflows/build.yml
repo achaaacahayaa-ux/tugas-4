@@ -1,0 +1,77 @@
+name: Build C++ Warung EXE
+
+on:
+push:
+branches:
+- main
+workflow_dispatch:
+
+permissions:
+contents: read
+
+jobs:
+build:
+name: Compile C++ for Windows
+runs-on: windows-latest
+
+steps:
+  - name: Download Repository
+    uses: actions/checkout@v4
+
+  - name: Check Source File
+    shell: pwsh
+    run: |
+      if (!(Test-Path "program_warung.cpp")) {
+        Write-Error "File program_warung.cpp tidak ditemukan!"
+        exit 1
+      }
+      Write-Host "File C++ ditemukan."
+
+  - name: Install MinGW Compiler
+    shell: pwsh
+    run: |
+      choco install mingw -y --no-progress
+      if ($LASTEXITCODE -ne 0) {
+        Write-Error "Gagal memasang compiler MinGW."
+        exit 1
+      }
+
+  - name: Compile C++ Program
+    shell: pwsh
+    run: |
+      $compiler = Get-Command g++ -ErrorAction SilentlyContinue
+      if (!$compiler) {
+        $env:Path += ";C:\ProgramData\mingw64\mingw64\bin"
+      }
+
+      g++ -std=c++17 -Wall -Wextra -O2 program_warung.cpp -o program_warung.exe
+
+      if ($LASTEXITCODE -ne 0) {
+        Write-Error "Kompilasi gagal."
+        exit 1
+      }
+
+      if (!(Test-Path "program_warung.exe")) {
+        Write-Error "File EXE tidak berhasil dibuat."
+        exit 1
+      }
+
+      Write-Host "EXE berhasil dibuat!"
+
+  - name: Test EXE File
+    shell: pwsh
+    run: |
+      if ((Get-Item "program_warung.exe").Length -le 0) {
+        Write-Error "File EXE kosong."
+        exit 1
+      }
+      Write-Host "Ukuran EXE:"
+      Get-Item "program_warung.exe" | Select-Object Name, Length
+
+  - name: Upload EXE Artifact
+    uses: actions/upload-artifact@v4
+    with:
+      name: program-warung-exe
+      path: program_warung.exe
+      if-no-files-found: error
+      retention-days: 7
